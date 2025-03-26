@@ -1,0 +1,116 @@
+sudo apt update && sudo apt upgrade -y
+
+sudo apt install -y libmicrohttpd-dev libjansson-dev libssl-dev libsrtp2-dev \
+libsofia-sip-ua-dev libglib2.0-dev libopus-dev libogg-dev libcurl4-openssl-dev \
+liblua5.3-dev libconfig-dev pkg-config git cmake make gcc g++ libnice-dev \
+libwebsockets-dev gengetopt automake libtool
+
+git clone https://github.com/sctplab/usrsctp.git
+cd usrsctp
+./bootstrap
+./configure
+make && sudo make install
+sudo ldconfig
+cd ..
+
+sudo apt update
+git clone https://github.com/xiph/rnnoise.git
+cd rnnoise
+./autogen.sh
+./configure
+make
+sudo make install
+sudo ldconfig
+
+cd /path/to/janus-gateway
+./configure --enable-rnnoise
+make
+sudo make install
+
+git clone https://github.com/meetecho/janus-gateway.git
+cd janus-gateway
+sh autogen.sh
+./configure --prefix=/opt/janus
+make
+sudo make install
+sudo make configs
+
+/opt/janus/bin/janus --nat-1-1=100.24.47.246
+sudo cp -r /opt/janus/share/janus/html/* /var/www/html/
+
+
+
+
+/opt/janus/etc/janus/janus.plugin.streaming.jcfg
+
+
+rtp-stream-1: {
+    type = "rtp"
+    id = 1
+    description = "Stream 1 from MDT"
+    audio = true
+    audioport = 5002
+    audiopt = 111
+    audiocodec = "opus"
+    video = true
+    videoport = 5004
+    videopt = 96
+    videocodec = "vp8"
+    secret = "your-secret"
+}
+
+rtp-stream-7: {
+    type = "rtp"
+    id = 7
+    description = "Stream 2 from Laptop A"
+    audio = true
+    audioport = 5008
+    audiopt = 111
+    audiocodec = "opus"
+    video = true
+    videoport = 5006
+    videopt = 96
+    videocodec = "vp8"
+    secret = "your-secret"
+}
+
+rtp-stream-5: {
+    type = "rtp"
+    id = 5
+    description = "Stream 3 from Laptop A"
+    audio = true
+    audioport = 5012
+    audiopt = 111
+    audiocodec = "opus"
+    video = true
+    videoport = 5010
+    videopt = 96
+    videocodec = "vp8"
+    secret = "your-secret"
+}
+
+
+[nat]
+stun_server = stun.l.google.com  ; STUN server for ICE
+stun_port = 19302
+turn_server = your-turn-server   ; Optional TURN server
+turn_port = 3478
+turn_user = your-turn-user
+turn_pwd = your-turn-password
+
+
+sudo /opt/janus/bin/janus --nat-1-1=54.158.56.167   //check janus logs
+
+sudo apt install nginx -y
+
+sudo cp -r /opt/janus/share/janus/html/* /var/www/html/
+
+echo sender command "ffmpeg -f dshow -i video="USB2.0 HD UVC WebCam" -c:v libvpx -b:v 500k -deadline realtime -c:a opus -b:a 64k -f rtp rtp://54.226.224.48:5104?localrtpport=5002"
+
+echo sender video "ffmpeg -f dshow -i audio="Microphone Array (Realtek(R) Audio)" -c:a opus -b:a 64k -strict -2 -f rtp rtp://52.91.139.245:5002"
+
+echo for janus server info "http://ec2-public-ip:8088/janus/info"
+
+echo janus demo page to view live video "http://54.173.238.160/demos/streaming.html"
+
+echo websocket testing connection "nc -zv 43.203.238.70 8188"

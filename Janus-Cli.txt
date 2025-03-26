@@ -1,0 +1,16 @@
+
+
+ffmpeg -f dshow -i video="USB2.0 HD UVC WebCam" -c:v libvpx -b:v 500k -deadline realtime -c:a opus -b:a 64k -f rtp -sdp_file stream.sdp "rtp://100.24.47.246:5004?localrtpport=5002"
+
+v=0
+o=- 0 0 IN IP4 127.0.0.1
+s=No Name
+c=IN IP4 100.24.47.246
+t=0 0
+a=tool:libavformat 61.7.100
+m=video 5004 RTP/AVP 96
+b=AS:500
+a=rtpmap:96 VP8/90000
+
+
+/opt/janus/bin/janus --nat-1-1=100.24.47.246
