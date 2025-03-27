@@ -1,0 +1,19 @@
+[general]
+#admin_key = "supersecret"              # Admin key for API requests
+#events = true                          # Enable event handlers (default: true)
+#string_ids = false                     # Use numeric IDs (default), set to true for string IDs
+
+# Sample video room configuration with recording
+[room-1234]
+description = "Sample Video Conference Room"
+secret = "adminpwd"                     # Password for room management
+pin = "1234"                            # Password for participants to join
+is_private = false                      # Whether the room is listed publicly
+max_publishers = 6                      # Max number of publishers (default: 3)
+bitrate = 128000                        # Bitrate cap in bps (default: 0, unlimited)
+fir_freq = 10                           # Frequency (seconds) to request FIR keyframes
+audiocodec = "opus"                     # Audio codec (options: opus, isac32, isac16, pcmu, pcma, g722)
+videocodec = "vp8"                      # Video codec (options: vp8, vp9, h264, av1, h265)
+record = true                           # Enable recording
+record_dir = "/recordings"              # Directory for recordings
+notify_joining = true                   # Notify participants when someone joins
