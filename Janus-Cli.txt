@@ -1,4 +1,8 @@
+ffmpeg -list_devices true -f dshow -i dummy
 
+ffmpeg -f dshow -video_size 640x480 -i video="USB2.0 HD UVC WebCam" -c:v libvpx -b:v 1M -f rtp rtp://13.213.46.108:5004
+
+ffmpeg -f dshow -i video="USB2.0 HD UVC WebCam" -c:v libvpx -b:v 1M -f rtp rtp://13.213.46.108:5004
 
 ffmpeg -f dshow -i video="USB2.0 HD UVC WebCam" -c:v libvpx -b:v 500k -deadline realtime -c:a opus -b:a 64k -f rtp -sdp_file stream.sdp "rtp://100.24.47.246:5004?localrtpport=5002"
 
@@ -13,4 +17,16 @@ b=AS:500
 a=rtpmap:96 VP8/90000
 
 
-/opt/janus/bin/janus --nat-1-1=100.24.47.246
+/opt/janus/bin/janus --nat-1-1=13.213.46.108
+
+gst-inspect-1.0 --version
+
+gst-launch-1.0 -v autoaudiosrc ! audioconvert ! audio/x-raw,format=S16LE,channels=1,rate=48000 ! opusenc bitrate=128000 frame-size=5 ! rtpopuspay pt=97 ! udpsink host=13.213.46.108 port=5002 sync=false
+
+
+gst-launch-1.0 -v mfvideosrc ! video/x-raw,width=1280,height=720,framerate=30/1 ! videoconvert ! queue max-size-buffers=2 ! x264enc tune=zerolatency bitrate=2500 speed-preset=superfast key-int-max=30 ! rtph264pay ! udpsink host=13.213.46.108 port=5004 sync=false
+
+
+gst-launch-1.0 -v dshowvideosrc device-name="USB2.0 HD UVC WebCam" do-timestamp=true ! video/x-raw,width=640,height=480,framerate=30/1 ! videoconvert ! queue leaky=downstream max-size-buffers=2 ! x264enc tune=zerolatency bitrate=1000 speed-preset=ultrafast key-int-max=15 ! rtph264pay pt=96 ! udpsink host=13.213.46.108 port=5004 sync=false async=false
+
+gst-launch-1.0 -v dshowvideosrc device-name="USB2.0 HD UVC WebCam" do-timestamp=true ! video/x-raw,width=640,height=480,framerate=30/1 ! videoconvert ! queue leaky=downstream max-size-buffers=2 ! vp8enc deadline=1 target-bitrate=1000000 cpu-used=4 ! rtpvp8pay pt=96 ! udpsink host=13.213.46.108 port=5004 sync=false async=false

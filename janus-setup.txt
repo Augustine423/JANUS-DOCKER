@@ -3,7 +3,7 @@ sudo apt update && sudo apt upgrade -y
 sudo apt install -y libmicrohttpd-dev libjansson-dev libssl-dev libsrtp2-dev \
 libsofia-sip-ua-dev libglib2.0-dev libopus-dev libogg-dev libcurl4-openssl-dev \
 liblua5.3-dev libconfig-dev pkg-config git cmake make gcc g++ libnice-dev \
-libwebsockets-dev gengetopt automake libtool
+libwebsockets-dev gengetopt automake libtool nginx
 
 git clone https://github.com/sctplab/usrsctp.git
 cd usrsctp
@@ -35,7 +35,7 @@ make
 sudo make install
 sudo make configs
 
-/opt/janus/bin/janus --nat-1-1=100.24.47.246
+/opt/janus/bin/janus --nat-1-1=54.179.3.216
 sudo cp -r /opt/janus/share/janus/html/* /var/www/html/
 
 
@@ -98,6 +98,7 @@ turn_port = 3478
 turn_user = your-turn-user
 turn_pwd = your-turn-password
 
+install with log    sudo ./janus.sh | tee install_log.txt
 
 sudo /opt/janus/bin/janus --nat-1-1=54.158.56.167   //check janus logs
 
@@ -113,4 +114,4 @@ echo for janus server info "http://ec2-public-ip:8088/janus/info"
 
 echo janus demo page to view live video "http://54.173.238.160/demos/streaming.html"
 
-echo websocket testing connection "nc -zv 43.203.238.70 8188"
+echo websocket testing connection "nc -zv 52.78.238.179 8188"

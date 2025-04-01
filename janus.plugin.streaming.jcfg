@@ -140,20 +140,23 @@ general: {
 # plugins/streams folder sends to. Whatever is sent to those ports will
 # be the source of a WebRTC broadcast users can subscribe to.
 #
-rtp-stream: {
-    type = "rtp"
-    id = 9
-    description = "RTP Stream from Laptop A"
-    audio = true
-    audioport = 5002
-    audiopt = 111
-    audiocodec = "opus"
-    video = true
-    videoport = 5004
-    videopt = 96
-    videocodec = "vp8"
-    secret = "your-secret"
+rtp-sample: {
+        type = "rtp"
+        id = 1
+        description = "Opus/VP8 MDT "
+        metadata = "You can use this metadata section to put any info you want!"
+        audio = true
+        video = true
+        audioport = 5002
+        audiopt = 111
+        audiocodec = "opus"
+        videoport = 5004
+        videopt = 100
+        videocodec = "vp8"
+        secret = "adminpwd"
 }
+
+#
 # This is a better example that uses the new settings to configure a live
 # mountpoint to send multiple streams of the same type at the same time:
 # that is, not simulcasting, but different streams (e.g., two audio
@@ -172,7 +175,7 @@ rtp-stream: {
 #
 multistream-test: {
         type = "rtp"
-        id = 123
+        id = 123456789
         description = "Multistream test (1 audio, 2 video)"
         metadata = "This is an example of a multistream mountpoint: you'll get an audio stream and two video feeds"
         media = (
@@ -197,6 +200,22 @@ multistream-test: {
                         mid = "v2"
                         label = "Video stream #2"
                         port = 5106
+                        pt = 100
+                        codec = "vp8"
+                },
+                {
+                        type = "video"
+                        mid = "v3"
+                        label = "Video stream #3"
+                        port = 5108
+                        pt = 100
+                        codec = "vp8"
+                },
+                {
+                        type = "video"
+                        mid = "v4"
+                        label = "Video stream #4"
+                        port = 5110
                         pt = 100
                         codec = "vp8"
                 }
