@@ -80,7 +80,7 @@ sudo make configs
 # Step 5.5: Copy custom Janus configurations
 echo "Copying custom Janus configurations..."
 if [ -d "$INSTALL_DIR/janus_configuration" ]; then
-    sudo cp -r $INSTALL_DIR/janus_configuration/* /opt/janus/etc/janus/
+    sudo cp -r $INSTALL_DIR/JANUS-DOCKER/janus_configuration/* /opt/janus/etc/janus/
     echo "Custom configurations copied successfully."
 else
     echo "Warning: janus_configuration directory not found in $INSTALL_DIR"
