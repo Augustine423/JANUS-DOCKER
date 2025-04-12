@@ -147,7 +147,7 @@ rtp-sample: {
         metadata = "You can use this metadata section to put any info you want!"
         audio = true
         video = true
-        audioport = 5002
+        audioport = 4800
         audiopt = 111
         audiocodec = "opus"
         videoport = 5004
@@ -183,7 +183,7 @@ multistream-test: {
                         type = "audio"
                         mid = "a"
                         label = "Audio stream"
-                        port = 5102
+                        port = 4900
                         pt = 111
                         codec = "opus"
                 },
@@ -191,7 +191,7 @@ multistream-test: {
                         type = "video"
                         mid = "v1"
                         label = "Video stream #1"
-                        port = 5104
+                        port = 5101
                         pt = 100
                         codec = "vp8"
                 },
@@ -199,7 +199,7 @@ multistream-test: {
                         type = "video"
                         mid = "v2"
                         label = "Video stream #2"
-                        port = 5106
+                        port = 5102
                         pt = 100
                         codec = "vp8"
                 },
@@ -207,7 +207,7 @@ multistream-test: {
                         type = "video"
                         mid = "v3"
                         label = "Video stream #3"
-                        port = 5108
+                        port = 5103
                         pt = 100
                         codec = "vp8"
                 },
@@ -215,7 +215,7 @@ multistream-test: {
                         type = "video"
                         mid = "v4"
                         label = "Video stream #4"
-                        port = 5110
+                        port = 5104
                         pt = 100
                         codec = "vp8"
                 }

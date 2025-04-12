@@ -1,3 +1,5 @@
+https://webrtc.github.io/adapter/adapter-latest.js
+
 ffmpeg -list_devices true -f dshow -i dummy
 
 ffmpeg -f dshow -video_size 640x480 -i video="USB2.0 HD UVC WebCam" -c:v libvpx -b:v 1M -f rtp rtp://13.213.46.108:5004
@@ -18,6 +20,8 @@ a=rtpmap:96 VP8/90000
 
 
 /opt/janus/bin/janus --nat-1-1=13.213.46.108
+
+nc -zv 13.213.46.108 8188
 
 gst-inspect-1.0 --version
 

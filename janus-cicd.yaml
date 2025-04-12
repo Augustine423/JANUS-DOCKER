@@ -1,0 +1,344 @@
+name: Janus CI/CD
+
+on:
+  push:
+    branches:
+      - master
+      - test-ci
+  pull_request:
+    branches:
+      - master
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        compiler: [gcc, clang]
+        datachannels: ["enable-datachannels", "disable-datachannels"]
+        libcurl: ["enable-libcurl", "disable-libcurl"]
+        include:
+          - datachannels: "enable-datachannels"
+            libcurl: "enable-libcurl"
+            deps_from_src: "yes"
+            janus_config_opts: ""
+          - datachannels: "enable-datachannels"
+            libcurl: "disable-libcurl"
+            deps_from_src: "no"
+            janus_config_opts: "--disable-aes-gcm --disable-mqtt --disable-mqtt-event-handler --disable-turn-rest-api --disable-sample-event-handler"
+          - datachannels: "disable-datachannels"
+            libcurl: "enable-libcurl"
+            deps_from_src: "no"
+            janus_config_opts: "--disable-aes-gcm --disable-mqtt --disable-mqtt-event-handler --disable-data-channels"
+        exclude:
+          - datachannels: "disable-datachannels"
+            libcurl: "disable-libcurl"
+    env:
+      CC: ${{ matrix.compiler }}
+    steps:
+      - name: Install Janus apt dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get --no-install-recommends -y install \
+            duktape-dev \
+            libavcodec-dev \
+            libavformat-dev \
+            libavutil-dev \
+            libcollection-dev \
+            libconfig-dev \
+            libevent-dev \
+            libglib2.0-dev \
+            libgirepository1.0-dev \
+            liblua5.3-dev \
+            libjansson-dev \
+            libmicrohttpd-dev \
+            libnanomsg-dev \
+            libogg-dev \
+            libopus-dev \
+            libpcap-dev \
+            librabbitmq-dev \
+            libsofia-sip-ua-dev \
+            libssl-dev \
+            libtool \
+            meson \
+            ninja-build
+
+      - name: Setup additional dependencies from apt
+        if: ${{ matrix.deps_from_src == 'no' }}
+        run: |
+          sudo apt-get --no-install-recommends -y install \
+            libnice-dev \
+            libsrtp2-dev \
+            libusrsctp-dev \
+            libwebsockets-dev
+
+      - name: Install cmake v3.31
+        uses: jwlawson/actions-setup-cmake@v2
+        with:
+          cmake-version: "3.31.6"
+
+      - name: Install libcurl from apt
+        if: ${{ matrix.libcurl == 'enable-libcurl' }}
+        run: sudo apt-get --no-install-recommends -y install libcurl4-openssl-dev
+
+      - name: Setup Python
+        if: ${{ matrix.deps_from_src == 'yes' }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+          architecture: "x64"
+
+      - name: Checkout libnice source
+        if: ${{ matrix.deps_from_src == 'yes' }}
+        uses: actions/checkout@v4
+        with:
+          repository: libnice/libnice
+          ref: master
+
+      - name: Setup libnice from sources
+        if: ${{ matrix.deps_from_src == 'yes' }}
+        run: |
+          meson setup -Dprefix=/usr -Dlibdir=lib -Dc_args="-O0 -Wno-cast-align" \
+            -Dexamples=disabled \
+            -Dgtk_doc=disabled \
+            -Dgstreamer=disabled \
+            -Dgupnp=disabled \
+            -Dtests=disabled \
+            build
+          ninja -C build
+          sudo ninja -C build install
+
+      - name: Checkout libsrtp source
+        if: ${{ matrix.deps_from_src == 'yes' }}
+        uses: actions/checkout@v4
+        with:
+          repository: cisco/libsrtp
+          ref: v2.7.0
+
+      - name: Setup libsrtp from sources
+        if: ${{ matrix.deps_from_src == 'yes' }}
+        run: |
+          ./configure --prefix=/usr CFLAGS="-O0" \
+            --disable-pcap \
+            --enable-openssl
+          make -j$(nproc) shared_library
+          sudo make install
+
+      - name: Checkout usrsctp source
+        if: ${{ matrix.datachannels == 'enable-datachannels' && matrix.deps_from_src == 'yes' }}
+        uses: actions/checkout@v4
+        with:
+          repository: sctplab/usrsctp
+          ref: master
+
+      - name: Setup usrsctp from sources
+        if: ${{ matrix.datachannels == 'enable-datachannels' && matrix.deps_from_src == 'yes' }}
+        run: |
+          ./bootstrap
+          ./configure --prefix=/usr CFLAGS="-O0" \
+            --disable-debug \
+            --disable-inet \
+            --disable-inet6 \
+            --disable-programs \
+            --disable-static \
+            --enable-shared
+          make -j$(nproc)
+          sudo make install
+
+      - name: Checkout lws source
+        if: ${{ matrix.deps_from_src == 'yes' }}
+        uses: actions/checkout@v4
+        with:
+          repository: warmcat/libwebsockets
+          ref: v4.3-stable
+
+      - name: Setup lws from sources
+        if: ${{ matrix.deps_from_src == 'yes' }}
+        run: |
+          mkdir build && cd build
+          cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr -DCMAKE_BUILD_TYPE=RELEASE -DCMAKE_C_FLAGS="-O0" \
+            -DLWS_ROLE_RAW_FILE=OFF \
+            -DLWS_WITH_HTTP2=OFF \
+            -DLWS_WITHOUT_EXTENSIONS=OFF \
+            -DLWS_WITHOUT_TESTAPPS=ON \
+            -DLWS_WITHOUT_TEST_CLIENT=ON \
+            -DLWS_WITHOUT_TEST_PING=ON \
+            -DLWS_WITHOUT_TEST_SERVER=ON \
+            -DLWS_WITH_STATIC=OFF \
+            ..
+          make -j$(nproc)
+          sudo make install
+
+      - name: Checkout paho-mqtt source
+        if: ${{ matrix.deps_from_src == 'yes' }}
+        uses: actions/checkout@v4
+        with:
+          repository: eclipse/paho.mqtt.c
+          ref: v1.3.14
+
+      - name: Setup paho-mqtt from sources
+        if: ${{ matrix.deps_from_src == 'yes' }}
+        run: |
+          mkdir build.paho && cd build.paho
+          cmake -DCMAKE_INSTALL_PREFIX:PATH=/usr -DCMAKE_BUILD_TYPE=RELEASE -DCMAKE_C_FLAGS="-O0" \
+            -DPAHO_HIGH_PERFORMANCE=TRUE \
+            -DPAHO_BUILD_DOCUMENTATION=FALSE \
+            -DPAHO_BUILD_SAMPLES=FALSE \
+            -DPAHO_BUILD_SHARED=TRUE \
+            -DPAHO_BUILD_STATIC=FALSE \
+            -DPAHO_ENABLE_TESTING=FALSE \
+            -DPAHO_WITH_SSL=TRUE \
+            ..
+          make -j$(nproc)
+          sudo make install
+
+      - name: Checkout Janus source
+        uses: actions/checkout@v4
+
+      - name: Build Janus from sources
+        env:
+          JANUS_CONFIG_COMMON: "--disable-docs --enable-post-processing --enable-plugin-lua --enable-plugin-duktape --enable-json-logger"
+          JANUS_CONFIG_OPTS: ${{ matrix.janus_config_opts }}
+        run: |
+          ./autogen.sh
+          ./configure $JANUS_CONFIG_COMMON $JANUS_CONFIG_OPTS CFLAGS="-O0"
+          make -j$(nproc)
+          make check-fuzzers
+
+      - name: Package Janus artifacts
+        run: |
+          mkdir -p artifacts/bin artifacts/lib artifacts/share
+          cp janus artifacts/bin/
+          cp -r libjanus_*.so artifacts/lib/
+          cp -r conf/*.jcfg artifacts/
+          tar -czf janus-artifacts.tar.gz -C artifacts .
+        # Only upload artifacts for the full configuration to avoid redundancy
+        if: ${{ matrix.datachannels == 'enable-datachannels' && matrix.libcurl == 'enable-libcurl' && matrix.deps_from_src == 'yes' }}
+
+      - name: Upload Janus artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: janus-artifacts
+          path: janus-artifacts.tar.gz
+        if: ${{ matrix.datachannels == 'enable-datachannels' && matrix.libcurl == 'enable-libcurl' && matrix.deps_from_src == 'yes' }}
+
+  javascript-lint:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install modules
+        run: |
+          cd npm
+          npm install
+      - name: Run ESLint
+        run: |
+          cd npm
+          npm run lint
+
+  javascript-dist:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install modules
+        run: |
+          cd npm
+          npm install
+      - name: Make dist files
+        run: |
+          cd npm
+          npm run prerelease
+      - uses: actions/upload-artifact@v4
+        with:
+          name: janus.es.js
+          path: npm/dist/janus.es.js
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-24.04
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    steps:
+      - name: Download Janus artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: janus-artifacts
+          path: .
+
+      - name: Setup SSH for EC2
+        run: |
+          echo "${{ secrets.EC2_SSH_KEY }}" > ssh_key.pem
+          chmod 400 ssh_key.pem
+          echo "${{ secrets.EC2_SSH_KNOWN_HOSTS }}" > known_hosts
+
+      - name: Install runtime dependencies on EC2
+        run: |
+          ssh -i ssh_key.pem -o UserKnownHostsFile=known_hosts ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+            sudo apt-get update
+            sudo apt-get --no-install-recommends -y install \
+              duktape-dev \
+              libavcodec-dev \
+              libavformat-dev \
+              libavutil-dev \
+              libcollection-dev \
+              libconfig-dev \
+              libevent-dev \
+              libglib2.0-dev \
+              libgirepository1.0-dev \
+              liblua5.3-dev \
+              libjansson-dev \
+              libmicrohttpd-dev \
+              libnanomsg-dev \
+              libogg-dev \
+              libopus-dev \
+              libpcap-dev \
+              librabbitmq-dev \
+              libsofia-sip-ua-dev \
+              libssl-dev \
+              libcurl4-openssl-dev \
+              libnice-dev \
+              libsrtp2-dev \
+              libusrsctp-dev \
+              libwebsockets-dev
+          EOF
+
+      - name: Deploy Janus to EC2
+        run: |
+          scp -i ssh_key.pem -o UserKnownHostsFile=known_hosts janus-artifacts.tar.gz ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }}:/home/${{ secrets.EC2_USER }}/janus-artifacts.tar.gz
+          ssh -i ssh_key.pem -o UserKnownHostsFile=known_hosts ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+            tar -xzf janus-artifacts.tar.gz -C /opt/janus --strip-components=1
+            sudo cp /opt/janus/bin/janus /usr/local/bin/
+            sudo cp /opt/janus/lib/*.so /usr/local/lib/
+            sudo mkdir -p /etc/janus
+            sudo cp /opt/janus/*.jcfg /etc/janus/
+            sudo ldconfig
+          EOF
+
+      - name: Setup Janus as a service
+        run: |
+          ssh -i ssh_key.pem -o UserKnownHostsFile=known_hosts ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+            sudo bash -c 'cat > /etc/systemd/system/janus.service' << 'INNER_EOF'
+            [Unit]
+            Description=Janus WebRTC Server
+            After=network.target
+
+            [Service]
+            ExecStart=/usr/local/bin/janus --configs-folder=/etc/janus
+            Restart=always
+            User=ubuntu
+            Group=ubuntu
+
+            [Install]
+            WantedBy=multi-user.target
+            INNER_EOF
+            sudo systemctl daemon-reload
+            sudo systemctl enable janus
+          EOF
+
+      - name: Restart Janus service
+        run: |
+          ssh -i ssh_key.pem -o UserKnownHostsFile=known_hosts ${{ secrets.EC2_USER }}@${{ secrets.EC2_HOST }} << 'EOF'
+            sudo systemctl restart janus
+            sudo systemctl status janus
+          EOF
