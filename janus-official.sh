@@ -77,6 +77,15 @@ make
 sudo make install
 sudo make configs
 
+# Step 5.5: Copy custom Janus configurations
+echo "Copying custom Janus configurations..."
+if [ -d "$INSTALL_DIR/janus_configuration" ]; then
+    sudo cp -r $INSTALL_DIR/janus_configuration/* /opt/janus/etc/janus/
+    echo "Custom configurations copied successfully."
+else
+    echo "Warning: janus_configuration directory not found in $INSTALL_DIR"
+fi
+
 # Step 6: Configure Janus to use Google STUN
 echo "Configuring Janus with Google STUN..."
 sudo sed -i '/\[nat\]/,/^\[/ s/stun_server = .*/stun_server = stun.l.google.com/' /opt/janus/etc/janus/janus.jcfg
@@ -119,25 +128,3 @@ EOF
 sudo systemctl daemon-reload
 sudo systemctl enable janus
 sudo systemctl start janus
-
-# Step 12: EC2 security group instructions
-echo "---------------------------------------------------"
-echo "EC2 Security Group Setup (do this manually in AWS console):"
-echo "1. Go to EC2 > Security Groups > Select your instance's group"
-echo "2. Add inbound rules:"
-echo "   - TCP 8088 (HTTP): Source 0.0.0.0/0"
-echo "   - TCP 8188 (WebSockets): Source 0.0.0.0/0"
-echo "   - UDP 20000-40000 (RTP): Source 0.0.0.0/0"
-echo "3. Save changes"
-echo "---------------------------------------------------"
-echo "ICE Server Info:"
-echo "- Using Google STUN: stun.l.google.com:19302"
-echo "- If ICE fails (e.g., symmetric NAT), consider adding Coturn TURN server later."
-echo "---------------------------------------------------"
-
-echo "Janus installation complete!"
-echo "Source directory: $INSTALL_DIR/janus-gateway"
-echo "Configuration files: /opt/janus/etc/janus/"
-echo "Test externally: http://$PUBLIC_IP:8088/janus or ws://$PUBLIC_IP:8188"
-echo "To manage Janus service:"
-echo "  sudo systemctl start|stop|restart|status janus"

@@ -147,10 +147,10 @@ rtp-sample: {
 	metadata = "You can use this metadata section to put any info you want!"
 	audio = true
 	video = true
-	audioport = 5002
+	audioport = 5999
 	audiopt = 111
 	audiocodec = "opus"
-	videoport = 5004
+	videoport = 5001
 	videopt = 100
 	videocodec = "h264"
 	secret = "adminpwd"
@@ -183,7 +183,7 @@ multistream-test: {
 			type = "audio"
 			mid = "a"
 			label = "Audio stream"
-			port = 5102
+			port = 5998
 			pt = 111
 			codec = "opus"
 		},
@@ -191,7 +191,7 @@ multistream-test: {
 			type = "video"
 			mid = "v1"
 			label = "Drone Video stream #1"
-			port = 5104
+			port = 5002
 			pt = 100
 			codec = "h264"
 		},
@@ -199,25 +199,25 @@ multistream-test: {
 			type = "video"
 			mid = "v2"
 			label = "Drone Video stream #2"
-			port = 5106
+			port = 5003
 			pt = 100
 			codec = "h264"
 		},
 		{
-                        type = "video"
-                        mid = "v3"
-                        label = "Drone Video stream #3"
-                        port = 5108
-                        pt = 100
-                        codec = "h264"
+        	type = "video"
+            mid = "v3"
+            label = "Drone Video stream #3"
+            port = 5004
+            pt = 100
+            codec = "h264"
                 },
 		{
-                        type = "video"
-                        mid = "v4"
-                        label = "Drone Video stream #4"
-                        port = 5110
-                        pt = 100
-                        codec = "264"
+        	type = "video"
+            mid = "v4"
+            label = "Drone Video stream #4"
+            port = 5005
+            pt = 100
+            codec = "264"
                 }
 	)
 	secret = "adminpwd"
