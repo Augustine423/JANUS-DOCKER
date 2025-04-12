@@ -3,8 +3,8 @@
 # Exit on any error
 set -e
 
-# Auto-detect public IP
-PUBLIC_IP=$(curl -s https://api.ipify.org || echo "127.0.0.1")
+# Variables
+PUBLIC_IP="18.143.74.115"
 INSTALL_DIR="/home/ubuntu"
 
 # Step 1: Update the system
@@ -97,33 +97,14 @@ echo "Starting Janus with NAT 1:1 mapping ($PUBLIC_IP)..."
 # Wait a few seconds for Janus to start
 sleep 5
 
+# Step 10: Basic connectivity test
+echo "Testing HTTP endpoint locally..."
+curl http://localhost:8088/janus || echo "HTTP test failed - check security group or network"
 
-
-# Step 11: Create systemd service for Janus
-echo "Creating systemd service for Janus..."
-cat <<EOF | sudo tee /etc/systemd/system/janus.service > /dev/null
-[Unit]
-Description=Janus WebRTC Gateway
-After=network.target
-
-[Service]
-ExecStart=/opt/janus/bin/janus --nat-1-1=$PUBLIC_IP
-Restart=always
-User=root
-Group=root
-
-[Install]
-WantedBy=multi-user.target
-EOF
-
-sudo systemctl daemon-reload
-sudo systemctl enable janus
-sudo systemctl start janus
-
-# Step 12: EC2 security group instructions
+# Step 11: EC2 security group instructions
 echo "---------------------------------------------------"
 echo "EC2 Security Group Setup (do this manually in AWS console):"
-echo "1. Go to EC2 > Security Groups > Select your instance's group"
+echo "1. Go to EC2 > Security Groups > Select your instance’s group"
 echo "2. Add inbound rules:"
 echo "   - TCP 8088 (HTTP): Source 0.0.0.0/0"
 echo "   - TCP 8188 (WebSockets): Source 0.0.0.0/0"
@@ -139,5 +120,3 @@ echo "Janus installation complete!"
 echo "Source directory: $INSTALL_DIR/janus-gateway"
 echo "Configuration files: /opt/janus/etc/janus/"
 echo "Test externally: http://$PUBLIC_IP:8088/janus or ws://$PUBLIC_IP:8188"
-echo "To manage Janus service:"
-echo "  sudo systemctl start|stop|restart|status janus"
