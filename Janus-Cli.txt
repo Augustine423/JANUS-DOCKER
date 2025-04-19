@@ -34,3 +34,32 @@ gst-launch-1.0 -v mfvideosrc ! video/x-raw,width=1280,height=720,framerate=30/1 
 gst-launch-1.0 -v dshowvideosrc device-name="USB2.0 HD UVC WebCam" do-timestamp=true ! video/x-raw,width=640,height=480,framerate=30/1 ! videoconvert ! queue leaky=downstream max-size-buffers=2 ! x264enc tune=zerolatency bitrate=1000 speed-preset=ultrafast key-int-max=15 ! rtph264pay pt=96 ! udpsink host=13.213.46.108 port=5004 sync=false async=false
 
 gst-launch-1.0 -v dshowvideosrc device-name="USB2.0 HD UVC WebCam" do-timestamp=true ! video/x-raw,width=640,height=480,framerate=30/1 ! videoconvert ! queue leaky=downstream max-size-buffers=2 ! vp8enc deadline=1 target-bitrate=1000000 cpu-used=4 ! rtpvp8pay pt=96 ! udpsink host=13.213.46.108 port=5004 sync=false async=false
+
+
+
+--------------ubuntu gstreamer------------
+gst-launch-1.0 v4l2src device=/dev/video0 ! image/jpeg,width=640,height=480,framerate=30/1 ! jpegdec ! videoconvert ! x264enc tune=zerolatency bitrate=1000 ! h264parse ! rtph264pay config-interval=1 pt=96 ! udpsink host=13.213.46.108 port=5004
+this command works but do i need to grant video devices permission?
+
+----------------------640x480 resolution test-----------------
+gst-launch-1.0 v4l2src device=/dev/video0 ! videoconvert ! video/x-raw,format=I420,width=640,height=480,framerate=30/1 ! x264enc tune=zerolatency bitrate=1000 ! h264parse ! rtph264pay pt=96 ! udpsink host=13.213.46.108 port=5004
+
+
+------------1280 resolution test------
+gst-launch-1.0 v4l2src device=/dev/video0 ! image/jpeg,width=1280,height=720,framerate=30/1 ! jpegdec ! videoconvert ! video/x-raw,format=I420 ! x264enc tune=zerolatency bitrate=2000 ! h264parse ! rtph264pay pt=96 ! udpsink host=13.213.46.108 port=5004
+
+
+--------------------RTSP Stream----------------
+
+gst-launch-1.0 rtspsrc location=rtsp://admin:admin@192.168.1.4:1935 latency=0 !   rtph264depay ! h264parse ! rtph264pay config-interval=1 pt=96 !   udpsink host=13.213.46.108 port=5004
+
+
+gst-launch-1.0 rtspsrc location=rtsp://admin:admin@192.168.1.6:1935/stream1 ! rtph264depay ! h264parse ! rtph264pay pt=96 ! udpsink host=13.213.46.108 port=5004
+
+
+gst-launch-1.0 rtspsrc location=rtsp://admin:admin@192.168.1.6:1935 ! rtph264depay ! h264parse ! avdec_h264 ! autovideosink
+
+
+vlc v4l2:///dev/video0
+v4l2-ctl --list-devices
+v4l2-ctl --device=/dev/video0 --list-formats-ext
