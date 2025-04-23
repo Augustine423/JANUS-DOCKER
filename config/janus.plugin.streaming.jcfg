@@ -1,0 +1,259 @@
+general: {
+	#admin_key = "supersecret"		# If set, mountpoints can be created via API
+									# only if this key is provided in the request
+	#rtp_port_range = "20000-40000"	# Range of ports to use for RTP/RTCP when '0' is
+									# passed as port for a mountpoint (default=10000-60000)
+	#events = false					# Whether events should be sent to event
+									# handlers (default=true)
+
+	# By default, integers are used as a unique ID for both mountpoints. In case
+	# you want to use strings instead (e.g., a UUID), set string_ids to true.
+	#string_ids = true
+}
+
+
+rtp-sample: {
+	type = "rtp"
+	id = 1
+	description = "MDT Test "
+	metadata = "You can use this metadata section to put any info you want!"
+	audio = true
+	video = true
+	audioport = 5002
+	audiopt = 111
+	audiocodec = "opus"
+	videoport = 5004
+	videopt = 100
+	videocodec = "vp9"
+	secret = "adminpwd"
+}
+
+multistream-test: {
+	type = "rtp"
+	id = 1234
+	description = "Multistream test (1 audio, 22 video)"
+	metadata = "This is an example of a multistream mountpoint: you'll get an audio stream and twenty-two video feeds"
+	media = (
+		{
+			type = "audio"
+			mid = "a"
+			label = "Audio stream"
+			port = 4000
+			pt = 111
+			codec = "opus"
+		},
+		{
+			type = "video"
+			mid = "v1"
+			label = "Drone Video stream #1"
+			port = 5101
+			pt = 100
+			codec = "h264"
+		},
+		{
+			type = "video"
+			mid = "v2"
+			label = "Drone Video stream #2"
+			port = 5102
+			pt = 100
+			codec = "h264"
+		},
+		{
+			type = "video"
+			mid = "v3"
+			label = "Drone Video stream #3"
+			port = 5103
+			pt = 100
+			codec = "h264"
+		},
+		{
+			type = "video"
+			mid = "v4"
+			label = "Drone Video stream #4"
+			port = 5104
+			pt = 100
+			codec = "h264"
+		},
+		{
+			type = "video"
+			mid = "v5"
+			label = "Drone Video stream #5"
+			port = 5105
+			pt = 100
+			codec = "h264"
+		},
+		{
+			type = "video"
+			mid = "v6"
+			label = "Drone Video stream #6"
+			port = 5106
+			pt = 100
+			codec = "h264"
+		},
+		{
+			type = "video"
+			mid = "v7"
+			label = "Drone Video stream #7"
+			port = 5107
+			pt = 100
+			codec = "h264"
+		},
+		{
+			type = "video"
+			mid = "v8"
+			label = "Drone Video stream #8"
+			port = 5108
+			pt = 100
+			codec = "h264"
+		},
+		{
+			type = "video"
+			mid = "v9"
+			label = "Drone Video stream #9"
+			port = 5109
+			pt = 100
+			codec = "h264"
+		},
+		{
+			type = "video"
+			mid = "v10"
+			label = "Drone Video stream #10"
+			port = 5110
+			pt = 100
+			codec = "h264"
+		},
+		{
+			type = "video"
+			mid = "v11"
+			label = "Drone Video stream #11"
+			port = 5111
+			pt = 100
+			codec = "h264"
+		},
+		{
+			type = "video"
+			mid = "v12"
+			label = "Drone Video stream #12"
+			port = 5112
+			pt = 100
+			codec = "h264"
+		},
+		{
+			type = "video"
+			mid = "v13"
+			label = "Drone Video stream #13"
+			port = 5113
+			pt = 100
+			codec = "h264"
+		},
+		{
+			type = "video"
+			mid = "v14"
+			label = "Drone Video stream #14"
+			port = 5114
+			pt = 100
+			codec = "h264"
+		},
+		{
+			type = "video"
+			mid = "v15"
+			label = "Drone Video stream #15"
+			port = 5115
+			pt = 100
+			codec = "h264"
+		},
+		{
+			type = "video"
+			mid = "v16"
+			label = "Drone Video stream #16"
+			port = 5116
+			pt = 100
+			codec = "h264"
+		},
+		{
+			type = "video"
+			mid = "v17"
+			label = "Drone Video stream #17"
+			port = 5117
+			pt = 100
+			codec = "h264"
+		},
+		{
+			type = "video"
+			mid = "v18"
+			label = "Drone Video stream #18"
+			port = 5118
+			pt = 100
+			codec = "h264"
+		},
+		{
+			type = "video"
+			mid = "v19"
+			label = "Drone Video stream #19"
+			port = 5119
+			pt = 100
+			codec = "h264"
+		},
+		{
+			type = "video"
+			mid = "v20"
+			label = "Drone Video stream #20"
+			port = 5120
+			pt = 100
+			codec = "h264"
+		},
+		{
+			type = "video"
+			mid = "v21"
+			label = "Drone Video stream #21"
+			port = 5121
+			pt = 100
+			codec = "h264"
+		},
+		{
+			type = "video"
+			mid = "v22"
+			label = "Drone Video stream #22"
+			port = 5122
+			pt = 100
+			codec = "h264"
+		},
+		{
+			type = "video"
+			mid = "v23"
+			label = "Drone Video stream #23"
+			port = 5123
+			pt = 100
+			codec = "h264"
+		},
+		{
+			type = "video"
+			mid = "v24"
+			label = "Drone Video stream #24"
+			port = 5124
+			pt = 100
+			codec = "h264"
+		}
+	)
+	secret = "adminpwd"
+}
+
+file-live-sample: {
+	type = "live"
+	id = 2
+	description = "a-law file source (radio broadcast)"
+	filename = "/opt/janus/share/janus/streams/radio.alaw"
+	audio = true
+	video = false
+	secret = "adminpwd"
+}
+
+file-ondemand-sample: {
+	type = "ondemand"
+	id = 3
+	description = "mu-law file source (music)"
+	filename = "/opt/janus/share/janus/streams/music.mulaw"
+	audio = true
+	video = false
+	secret = "adminpwd"
+}
