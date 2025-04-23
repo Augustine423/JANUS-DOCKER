@@ -3,7 +3,7 @@
 # Exit on any error
 set -e
 
-# Auto-detect public IP
+# Auto-detect public IP of ec2
 PUBLIC_IP=$(curl -s https://api.ipify.org || echo "127.0.0.1")
 INSTALL_DIR="/home/ubuntu"
 
