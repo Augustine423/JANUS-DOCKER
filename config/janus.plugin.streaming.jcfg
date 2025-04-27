@@ -20,7 +20,7 @@ rtp-sample: {
 	audiocodec = "opus"
 	videoport = 5004
 	videopt = 100
-	videocodec = "vp9"
+	videocodec = "h264"
 	secret = "adminpwd"
 }
 
