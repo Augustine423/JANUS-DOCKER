@@ -80,7 +80,7 @@ sudo make configs
 
 # Step 5.5: Copy custom Janus configurations
 echo "Copying custom Janus configurations..."
-if [ -d "$INSTALL_DIR/janus_configuration" ]; then
+if [ -d "$INSTALL_DIR/config" ]; then
     sudo cp -r $INSTALL_DIR/JANUS-DOCKER/config/* /opt/janus/etc/janus/
     echo "Custom configurations copied successfully."
 else
