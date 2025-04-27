@@ -39,7 +39,7 @@ sudo apt install -y \
     libnice-dev \
     libwebsockets-dev \
     libspeexdsp-dev \
-    libavutil
+    libavutil-dev
 
 # Step 3: Install usrsctp
 echo "Installing usrsctp..."
