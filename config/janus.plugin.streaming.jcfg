@@ -233,7 +233,39 @@ multistream-test: {
 			port = 5124
 			pt = 100
 			codec = "h264"
-		}
+		},
+		{
+			type = "video"
+			mid = "v25"
+			label = "Drone Video stream #25"
+			port = 5125
+			pt = 100
+			codec = "h264"
+		},
+		{
+			type = "video"
+			mid = "v26"
+			label = "Drone Video stream #26"
+			port = 5126
+			pt = 100
+			codec = "h264"
+		},
+		{
+			type = "video"
+			mid = "v27"
+			label = "Drone Video stream #27"
+			port = 5127
+			pt = 100
+			codec = "h264"
+		},
+		{
+			type = "video"
+			mid = "v28"
+			label = "Drone Video stream #28"
+			port = 5128
+			pt = 100
+			codec = "h264"
+		},
 	)
 	secret = "adminpwd"
 }
