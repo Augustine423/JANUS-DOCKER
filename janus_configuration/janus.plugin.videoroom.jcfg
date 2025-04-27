@@ -72,11 +72,11 @@ general: {
 room-1234: {
 	description = "Demo Room"
 	secret = "adminpwd"
-	publishers = 10
+	publishers = 50
 	bitrate = 128000	# This is a low cap, increase if you want to use simulcast or SVC
-	fir_freq = 10
+	fir_freq = 50
 	audiocodec = "opus"
 	videocodec = "h264"
-	record = false
-	#rec_dir = "/path/to/recordings-folder"
+	record = true
+	rec_dir = "/opt/janus/share/janus/recordings"
 }

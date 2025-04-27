@@ -57,16 +57,16 @@
 #}
 
 general: {
-	#admin_key = "supersecret"		# If set, rooms can be created via API only
+	admin_key = "supersecret"		# If set, rooms can be created via API only
 									# if this key is provided in the request
 	#lock_rtp_forward = true		# Whether the admin_key above should be
 									# enforced for RTP forwarding requests too
-	#events = false					# Whether events should be sent to event
+	events = true					# Whether events should be sent to event
 									# handlers (default=true)
 
 	# By default, integers are used as a unique ID for both rooms and participants.
 	# In case you want to use strings instead (e.g., a UUID), set string_ids to true.
-	#string_ids = true
+	string_ids = true
 }
 
 room-1234: {
@@ -78,5 +78,5 @@ room-1234: {
 	audiocodec = "opus"
 	videocodec = "h264"
 	record = false
-	#rec_dir = "/path/to/recordings-folder"
+	rec_dir = "/opt/janus/share/janus/recordings"
 }
