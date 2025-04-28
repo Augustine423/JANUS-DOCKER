@@ -1,11 +1,21 @@
+ubuntu@ip-172-31-10-123:~$ cat janus.sh
 #!/bin/bash
 
 # Exit on any error
 set -e
 
-# Auto-detect public IP of ec2
+# Auto-detect public IP of EC2
 PUBLIC_IP=$(curl -s https://api.ipify.org || echo "127.0.0.1")
 INSTALL_DIR="/home/ubuntu"
+
+# Function to check if a port is in use
+check_port() {
+    local port=$1
+    if sudo netstat -tuln | grep -q ":${port}\b"; then
+        echo "Error: Port $port is already in use."
+        exit 1
+    fi
+}
 
 # Step 1: Update the system
 echo "Updating system..."
@@ -39,7 +49,9 @@ sudo apt install -y \
     libnice-dev \
     libwebsockets-dev \
     libspeexdsp-dev \
-    libavutil-dev
+    libavutil-dev \
+    libavcodec-dev \
+    libavformat-dev
 
 # Step 3: Install usrsctp
 echo "Installing usrsctp..."
@@ -78,38 +90,608 @@ make
 sudo make install
 sudo make configs
 
-# Step 5.5: Copy custom Janus configurations
-echo "Copying custom Janus configurations..."
-if [ -d "$INSTALL_DIR/config" ]; then
-    sudo cp -r $INSTALL_DIR/JANUS-DOCKER/config/* /opt/janus/etc/janus/
-    echo "Custom configurations copied successfully."
-else
-    echo "Warning: janus_configuration directory not found in $INSTALL_DIR"
-fi
+# Step 6: Ensure logger plugins folder exists and has correct permissions
+echo "Ensuring logger plugins folder exists..."
+sudo mkdir -p /opt/janus/lib/janus/loggers
+sudo chmod 755 /opt/janus/lib/janus/loggers
+sudo chown root:root /opt/janus/lib/janus/loggers
 
-# Step 6: Configure Janus to use Google STUN
-echo "Configuring Janus with Google STUN..."
-sudo sed -i '/\[nat\]/,/^\[/ s/stun_server = .*/stun_server = stun.l.google.com/' /opt/janus/etc/janus/janus.jcfg
-sudo sed -i '/\[nat\]/,/^\[/ s/stun_port = .*/stun_port = 19302/' /opt/janus/etc/janus/janus.jcfg
+# Step 7: Apply custom Janus core configuration
+echo "Applying custom Janus core configuration..."
+cat <<EOF | sudo tee /opt/janus/etc/janus/janus.jcfg > /dev/null
+general: {
+        configs_folder = "/opt/janus/etc/janus"
+        plugins_folder = "/opt/janus/lib/janus/plugins"
+        transports_folder = "/opt/janus/lib/janus/transports"
+        events_folder = "/opt/janus/lib/janus/events"
+        loggers_folder = "/opt/janus/lib/janus/loggers"
+        debug_level = 4
+        admin_secret = "janusoverlord"
+        protected_folders = [
+                "/bin",
+                "/boot",
+                "/dev",
+                "/etc",
+                "/initrd",
+                "/lib",
+                "/lib32",
+                "/lib64",
+                "/proc",
+                "/sbin",
+                "/sys",
+                "/usr",
+                "/var",
+                "/opt/janus/bin",
+                "/opt/janus/etc",
+                "/opt/janus/include",
+                "/opt/janus/lib",
+                "/opt/janus/lib32",
+                "/opt/janus/lib64",
+                "/opt/janus/sbin"
+        ]
+}
 
-# Step 7: Copy demo files to nginx web root
+certificates: {
+}
+
+media: {
+}
+
+nat: {
+        stun_server = "stun.l.google.com"
+        stun_port = 19302
+        nice_debug = false
+        full_trickle = true
+        ice_lite = true
+        ignore_mdns = true
+        nat_1_1_mapping = "auto"
+}
+
+plugins: {
+}
+
+transports: {
+        disable = "libjanus_rabbitmq.so"
+}
+
+loggers: {
+        disable = "libjanus_jsonlog.so"
+}
+
+events: {
+}
+EOF
+
+# Step 8: Apply custom video room plugin configuration
+echo "Applying custom video room plugin configuration..."
+cat <<EOF | sudo tee /opt/janus/etc/janus/janus.plugin.videoroom.jcfg > /dev/null
+general: {
+        admin_key = "supersecret"
+        events = true
+        string_ids = true
+}
+
+room-1234: {
+        description = "Demo Room"
+        secret = "adminpwd"
+        publishers = 50
+        bitrate = 128000
+        fir_freq = 10
+        audiocodec = "opus"
+        videocodec = "h264"
+        record = false
+        rec_dir = "/opt/janus/share/janus/recordings"
+}
+EOF
+
+# Step 9: Apply custom Unix sockets transport configuration
+echo "Applying custom Unix sockets transport configuration..."
+cat <<EOF | sudo tee /opt/janus/etc/janus/janus.transport.pfunix.jcfg > /dev/null
+general: {
+        enabled = true
+        json = "indented"
+        path = "/tmp/janus.sock"
+}
+
+admin: {
+        admin_enabled = true
+        admin_path = "/tmp/janus-admin.sock"
+}
+EOF
+
+# Step 10: Apply custom WebSockets transport configuration
+echo "Applying custom WebSockets transport configuration..."
+cat <<EOF | sudo tee /opt/janus/etc/janus/janus.transport.websockets.jcfg > /dev/null
+general: {
+        json = "indented"
+        ws = true
+        ws_port = 8188
+        wss = false
+}
+
+admin: {
+        admin_ws = false
+        admin_ws_port = 7188
+        admin_wss = false
+}
+
+cors: {
+}
+
+certificates: {
+}
+EOF
+
+# Step 11: Apply custom streaming plugin configuration
+echo "Applying custom streaming plugin configuration..."
+cat <<EOF | sudo tee /opt/janus/etc/janus/janus.plugin.streaming.jcfg > /dev/null
+general: {
+    admin_key = "supersecret"
+    rtp_port_range = "5100-40000"
+    events = true
+    string_ids = false
+}
+
+rtp-sample: {
+    type = "rtp"
+    id = 1
+    description = "MDT Test "
+    metadata = "You can use this metadata section to put any info you want!"
+    audio = true
+    video = true
+    audioport = 5002
+    audiopt = 111
+    audiocodec = "opus"
+    videoport = 5004
+    videopt = 100
+    videocodec = "h264"
+    secret = "adminpwd"
+}
+
+multistream-test: {
+    type = "rtp"
+    id = 1234
+    description = "Multistream test (1 audio, 50 video)"
+    metadata = "This is an example of a multistream mountpoint: you'll get an audio stream and fifty video feeds"
+    media = (
+        {
+            type = "audio"
+            mid = "a"
+            label = "Audio stream"
+            port = 5100
+            pt = 111
+            codec = "opus"
+        },
+        {
+            type = "video"
+            mid = "v1"
+            label = "Drone Video stream #1"
+            port = 5101
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v2"
+            label = "Drone Video stream #2"
+            port = 5102
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v3"
+            label = "Drone Video stream #3"
+            port = 5103
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v4"
+            label = "Drone Video stream #4"
+            port = 5104
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v5"
+            label = "Drone Video stream #5"
+            port = 5105
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v6"
+            label = "Drone Video stream #6"
+            port = 5106
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v7"
+            label = "Drone Video stream #7"
+            port = 5107
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v8"
+            label = "Drone Video stream #8"
+            port = 5108
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v9"
+            label = "Drone Video stream #9"
+            port = 5109
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v10"
+            label = "Drone Video stream #10"
+            port = 5110
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v11"
+            label = "Drone Video stream #11"
+            port = 5111
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v12"
+            label = "Drone Video stream #12"
+            port = 5112
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v13"
+            label = "Drone Video stream #13"
+            port = 5113
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v14"
+            label = "Drone Video stream #14"
+            port = 5114
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v15"
+            label = "Drone Video stream #15"
+            port = 5115
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v16"
+            label = "Drone Video stream #16"
+            port = 5116
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v17"
+            label = "Drone Video stream #17"
+            port = 5117
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v18"
+            label = "Drone Video stream #18"
+            port = 5118
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v19"
+            label = "Drone Video stream #19"
+            port = 5119
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v20"
+            label = "Drone Video stream #20"
+            port = 5120
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v21"
+            label = "Drone Video stream #21"
+            port = 5121
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v22"
+            label = "Drone Video stream #22"
+            port = 5122
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v23"
+            label = "Drone Video stream #23"
+            port = 5123
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v24"
+            label = "Drone Video stream #24"
+            port = 5124
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v25"
+            label = "Drone Video stream #25"
+            port = 5125
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v26"
+            label = "Drone Video stream #26"
+            port = 5126
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v27"
+            label = "Drone Video stream #27"
+            port = 5127
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v28"
+            label = "Drone Video stream #28"
+            port = 5128
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v29"
+            label = "Drone Video stream #29"
+            port = 5129
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v30"
+            label = "Drone Video stream #30"
+            port = 5130
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v31"
+            label = "Drone Video stream #31"
+            port = 5131
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v32"
+            label = "Drone Video stream #32"
+            port = 5132
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v33"
+            label = "Drone Video stream #33"
+            port = 5133
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v34"
+            label = "Drone Video stream #34"
+            port = 5134
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v35"
+            label = "Drone Video stream #35"
+            port = 5135
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v36"
+            label = "Drone Video stream #36"
+            port = 5136
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v37"
+            label = "Drone Video stream #37"
+            port = 5137
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v38"
+            label = "Drone Video stream #38"
+            port = 5138
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v39"
+            label = "Drone Video stream #39"
+            port = 5139
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v40"
+            label = "Drone Video stream #40"
+            port = 5140
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v41"
+            label = "Drone Video stream #41"
+            port = 5141
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v42"
+            label = "Drone Video stream #42"
+            port = 5142
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v43"
+            label = "Drone Video stream #43"
+            port = 5143
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v44"
+            label = "Drone Video stream #44"
+            port = 5144
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v45"
+            label = "Drone Video stream #45"
+            port = 5145
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v46"
+            label = "Drone Video stream #46"
+            port = 5146
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v47"
+            label = "Drone Video stream #47"
+            port = 5147
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v48"
+            label = "Drone Video stream #48"
+            port = 5148
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v49"
+            label = "Drone Video stream #49"
+            port = 5149
+            pt = 100
+            codec = "h264"
+        },
+        {
+            type = "video"
+            mid = "v50"
+            label = "Drone Video stream #50"
+            port = 5150
+            pt = 100
+            codec = "h264"
+        }
+    )
+    secret = "adminpwd"
+}
+
+
+EOF
+
+# Step 12: Copy demo files to nginx web root
 echo "Copying demo files to /var/www/html..."
 sudo cp -r /opt/janus/share/janus/html/* /var/www/html/
 
-# Step 8: Verify installation
+# Step 13: Verify installation
 echo "Verifying Janus installation..."
 /opt/janus/bin/janus --version
 
-# Step 9: Test Janus with NAT setting
+
+
+# Step 14: Stop any existing Janus processes
+echo "Stopping any existing Janus processes..."
+sudo pkill -f janus || true
+sleep 2
+
+# Step 15: Test Janus with NAT setting
 echo "Starting Janus with NAT 1:1 mapping ($PUBLIC_IP)..."
 /opt/janus/bin/janus --nat-1-1=$PUBLIC_IP -d 5 &
 
 # Wait a few seconds for Janus to start
 sleep 5
 
-
-
-# Step 11: Create systemd service for Janus
+# Step 16: Create systemd service for Janus
 echo "Creating systemd service for Janus..."
 cat <<EOF | sudo tee /etc/systemd/system/janus.service > /dev/null
 [Unit]
