@@ -1,5 +1,7 @@
 https://webrtc.github.io/adapter/adapter-latest.js
 
+sudo journalctl -u janus | grep recordplay
+
 ffmpeg -list_devices true -f dshow -i dummy
 
 ffmpeg -f dshow -video_size 640x480 -i video="USB2.0 HD UVC WebCam" -c:v libvpx -b:v 1M -f rtp rtp://13.213.46.108:5004
@@ -63,3 +65,8 @@ gst-launch-1.0 rtspsrc location=rtsp://admin:admin@192.168.1.6:1935 ! rtph264dep
 vlc v4l2:///dev/video0
 v4l2-ctl --list-devices
 v4l2-ctl --device=/dev/video0 --list-formats-ext
+
+
+Dmlcjf71!@
+
+

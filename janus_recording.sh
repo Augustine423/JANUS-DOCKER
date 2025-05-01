@@ -1,4 +1,3 @@
-ubuntu@ip-172-31-10-123:~$ cat janus.sh
 #!/bin/bash
 
 # Exit on any error
@@ -85,7 +84,8 @@ cd janus-gateway
 sh autogen.sh
 ./configure --prefix=/opt/janus \
     --enable-websockets \
-    --enable-libsrtp2
+    --enable-libsrtp2 \
+    --enable-plugin-recordplay
 make
 sudo make install
 sudo make configs
@@ -154,6 +154,7 @@ nat: {
 }
 
 plugins: {
+    janus.plugin.recordplay = true
 }
 
 transports: {
@@ -234,7 +235,6 @@ echo "Applying custom streaming plugin configuration..."
 cat <<EOF | sudo tee /opt/janus/etc/janus/janus.plugin.streaming.jcfg > /dev/null
 general: {
     admin_key = "supersecret"
-    #rtp_port_range = "5100-40000"
     events = true
     string_ids = false
 }
@@ -698,7 +698,7 @@ multistream-test: {
             port = 5143
             pt = 100
             codec = "h264"
-            record = true
+            record = "true"
             recfile = "/opt/janus/recordings/multistream-test-v43-%Y%m%d%H%M%S.mjr"
         },
         {
@@ -796,24 +796,31 @@ file-ondemand-sample: {
 }
 EOF
 
-# Step 12: Copy demo files to nginx web root
+# Step 12: Apply custom Record & Play plugin configuration
+echo "Applying custom Record & Play plugin configuration..."
+cat <<EOF | sudo tee /opt/janus/etc/janus/janus.plugin.recordplay.jcfg > /dev/null
+general: {
+    folder = "/opt/janus/recordings"    ; Where to save recordings
+    update_refs = true                  ; Whether to update reference files
+}
+EOF
+
+# Step 13: Copy demo files to nginx web root
 echo "Copying demo files to /var/www/html..."
 sudo cp -r /opt/janus/share/janus/html/* /var/www/html/
 
-# Step 13: Verify installation
+# Step 14: Verify installation
 echo "Verifying Janus installation..."
 /opt/janus/bin/janus --version
 
-
-
-# Step 14: Test Janus with NAT setting
+# Step 15: Test Janus with NAT setting
 echo "Starting Janus with NAT 1:1 mapping ($PUBLIC_IP)..."
 /opt/janus/bin/janus --nat-1-1=$PUBLIC_IP -d 5 &
 
 # Wait a few seconds for Janus to start
 sleep 5
 
-# Step 15: Create systemd service for Janus
+# Step 16: Create systemd service for Janus
 echo "Creating systemd service for Janus..."
 cat <<EOF | sudo tee /etc/systemd/system/janus.service > /dev/null
 [Unit]
