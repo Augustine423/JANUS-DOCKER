@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Variables
-S3_BUCKET="mdt-video-gallery"
+S3_BUCKET="mdt-video-gallery-1"
 RECORDINGS_DIR="/opt/janus/recordings"
 PROCESSED_DIR="/tmp/processed_recordings"
 JANUS_LOG="/opt/janus/log/janus.log"
