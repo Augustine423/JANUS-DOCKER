@@ -1,4 +1,3 @@
-version: '3.8'
 
 services:
   janus:
@@ -15,7 +14,7 @@ services:
       - recordings:/opt/janus/recordings
       - logs:/opt/janus/log
     environment:
-      - PUBLIC_IP=${PUBLIC_IP:-$(curl -s https://api.ipify.org || echo "127.0.0.1")}
+      - PUBLIC_IP=13.215.249.89
     command: /opt/janus/bin/janus --nat-1-1=${PUBLIC_IP} -d 5
     restart: unless-stopped
 
