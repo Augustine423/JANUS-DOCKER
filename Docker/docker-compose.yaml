@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  janus:
+    build:
+      context: .
+      dockerfile: Dockerfile.janus
+    container_name: janus
+    ports:
+      - "8188:8188" # WebSockets
+      - "80:80" #nginx web
+      - "5100-5150:5100-5150/udp" # RTP ports for multistream-test
+    volumes:
+      - ./config:/opt/janus/etc/janus:ro
+      - recordings:/opt/janus/recordings
+      - logs:/opt/janus/log
+    environment:
+      - PUBLIC_IP=${PUBLIC_IP:-$(curl -s https://api.ipify.org || echo "127.0.0.1")}
+    command: /opt/janus/bin/janus --nat-1-1=${PUBLIC_IP} -d 5
+    restart: unless-stopped
+
+  recorder:
+    build:
+      context: .
+      dockerfile: Dockerfile.recorder
+    container_name: recorder
+    volumes:
+      - recordings:/opt/janus/recordings
+      - logs:/opt/janus/log:ro
+    environment:
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_DEFAULT_REGION=${AWS_DEFAULT_REGION:-us-east-1}
+    restart: unless-stopped
+
+volumes:
+  recordings:
+  logs:

@@ -1,0 +1,78 @@
+FROM ubuntu:24.04
+
+# Set working directory
+WORKDIR /home/ubuntu
+
+# Install dependencies
+RUN apt-get update && apt-get upgrade -y && apt-get install -y \
+    build-essential \
+    git \
+    cmake \
+    pkg-config \
+    automake \
+    libtool \
+    gengetopt \
+    make \
+    gcc \
+    g++ \
+    nginx \
+    libmicrohttpd-dev \
+    libjansson-dev \
+    libssl-dev \
+    libsrtp2-dev \
+    libsofia-sip-ua-dev \
+    libglib2.0-dev \
+    libopus-dev \
+    libogg-dev \
+    libcurl4-openssl-dev \
+    liblua5.3-dev \
+    libconfig-dev \
+    libnice-dev \
+    libwebsockets-dev \
+    libspeexdsp-dev \
+    libavutil-dev \
+    libavcodec-dev \
+    libavformat-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install usrsctp
+RUN git clone https://github.com/sctplab/usrsctp.git && \
+    cd usrsctp && \
+    ./bootstrap && \
+    ./configure && \
+    make && make install && \
+    ldconfig && \
+    cd .. && rm -rf usrsctp
+
+# Install libsrtp from source
+RUN curl -L https://github.com/cisco/libsrtp/archive/v2.5.0.tar.gz -o libsrtp-2.5.0.tar.gz && \
+    tar xfv libsrtp-2.5.0.tar.gz && \
+    cd libsrtp-2.5.0 && \
+    ./configure --prefix=/usr && \
+    make && make install && \
+    ldconfig && \
+    cd .. && rm -rf libsrtp-2.5.0 libsrtp-2.5.0.tar.gz
+
+# Install Janus Gateway
+RUN git clone https://github.com/meetecho/janus-gateway.git && \
+    cd janus-gateway && \
+    sh autogen.sh && \
+    ./configure --prefix=/opt/janus \
+                --enable-websockets \
+                --enable-libsrtp2 && \
+    make && make install && make configs && \
+    cd .. && rm -rf janus-gateway
+
+# Ensure logger plugins and recordings directories exist
+RUN mkdir -p /opt/janus/lib/janus/loggers /opt/janus/recordings /opt/janus/log && \
+    chmod 755 /opt/janus/lib/janus/loggers /opt/janus/recordings /opt/janus/log && \
+    chown root:root /opt/janus/lib/janus/loggers /opt/janus/recordings /opt/janus/log
+
+# Copy demo files to nginx web root
+RUN cp -r /opt/janus/share/janus/html/* /var/www/html/
+
+# Expose ports
+EXPOSE 8188 5100-5150/udp
+
+# Command to run Janus
+CMD ["/opt/janus/bin/janus", "--nat-1-1=${PUBLIC_IP}", "-d", "5"]
