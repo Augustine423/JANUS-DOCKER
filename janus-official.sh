@@ -1,4 +1,3 @@
-ubuntu@ip-172-31-10-123:~$ cat janus.sh
 #!/bin/bash
 
 # Exit on any error

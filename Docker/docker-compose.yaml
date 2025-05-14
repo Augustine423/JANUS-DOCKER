@@ -15,7 +15,7 @@ services:
       - logs:/opt/janus/log
     environment:
       - PUBLIC_IP=13.215.249.89
-    command: /opt/janus/bin/janus --nat-1-1=${PUBLIC_IP} -d 5
+    command: /opt/janus/bin/janus --nat-1-1=auto -d 5
     restart: unless-stopped
 
   recorder:

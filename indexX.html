@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Drone Video Dashboard</title>
+  <style>
+    body {
+      background: #1a202c;
+      color: #fff;
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 20px;
+    }
+    #status {
+      text-align: center;
+      margin: 10px;
+      font-size: 18px;
+      color: #fff;
+    }
+    #error {
+      text-align: center;
+      margin: 10px;
+      font-size: 18px;
+      color: #ff4444;
+    }
+    #video-container {
+      max-width: 800px;
+      margin: 20px auto;
+      text-align: center;
+    }
+    .video-wrapper {
+      position: relative;
+      width: 100%;
+      padding-bottom: 56.25%; /* 16:9 aspect ratio */
+      background: black;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .video-wrapper video {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .video-label {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      color: white;
+      background: rgba(0, 0, 0, 0.7);
+      padding: 5px 10px;
+      border-radius: 4px;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div id="status">Connecting to drone stream...</div>
+  <div id="error"></div>
+  <div id="video-container"></div>
+
+  <script src="./adapter.js"></script>
+  <script src="./janus.js"></script>
+  <script>
+    // Configuration
+    const config = {
+      server: "ws://43.201.9.168:8188",
+      secret: "adminpwd",
+      mountpointId: 1234,
+      mountpointName: "Drone Video Stream"
+    };
+
+    // State management
+    const state = {
+      janus: null,
+      streamingHandle: null,
+      remoteStream: null
+    };
+
+    // Initialize Janus
+    function initializeJanus() {
+      Janus.init({
+        debug: "warn",
+        callback: function() {
+          if (!Janus.isWebrtcSupported()) {
+            showError("WebRTC not supported by this browser");
+            return;
+          }
+
+          state.janus = new Janus({
+            server: config.server,
+            success: function() {
+              updateStatus("Connected to Janus server");
+              attachToStreamingPlugin();
+            },
+            error: function(error) {
+              showError(`Connection failed: ${error}`);
+            }
+          });
+        }
+      });
+    }
+
+    // Attach to the Streaming plugin
+    function attachToStreamingPlugin() {
+      state.janus.attach({
+        plugin: "janus.plugin.streaming",
+        opaqueId: `streaming-${config.mountpointId}-${Janus.randomString(12)}`,
+        success: function(pluginHandle) {
+          state.streamingHandle = pluginHandle;
+          updateStatus(`Connected to ${config.mountpointName}`);
+          startWatching();
+        },
+        error: function(error) {
+          showError(`Plugin error: ${error}`);
+        },
+        onmessage: handleJanusMessage,
+        onremotetrack: handleRemoteTrack,
+        oncleanup: cleanupStream
+      });
+    }
+
+    // Start watching the mountpoint
+    function startWatching() {
+      state.streamingHandle.send({
+        message: {
+          request: "watch",
+          id: config.mountpointId,
+          secret: config.secret,
+          offer_audio: false,
+          offer_video: true
+        },
+        success: function() {
+          updateStatus("Requesting stream...");
+        },
+        error: function(error) {
+          showError(`Watch error: ${error}`);
+        }
+      });
+    }
+
+    // Handle Janus messages
+    function handleJanusMessage(msg, jsep) {
+      if (msg.error) {
+        showError(msg.error);
+        return;
+      }
+
+      if (msg.result && msg.result.status) {
+        updateStatus(`Stream status: ${msg.result.status}`);
+      }
+
+      if (jsep) {
+        handleWebRTCAnswer(jsep);
+      }
+    }
+
+    // Handle WebRTC answer creation
+    function handleWebRTCAnswer(jsep) {
+      state.streamingHandle.createAnswer({
+        jsep: jsep,
+        tracks: [{ type: "video", recv: true }],
+        success: function(jsepAnswer) {
+          state.streamingHandle.send({
+            message: { request: "start" },
+            jsep: jsepAnswer
+          });
+        },
+        error: function(error) {
+          showError(`WebRTC error: ${error}`);
+        }
+      });
+    }
+
+    // Handle incoming remote track
+    function handleRemoteTrack(track, mid, on) {
+      if (!state.remoteStream) {
+        state.remoteStream = new MediaStream();
+        createVideoElement(mid);
+      }
+
+      if (on) {
+        state.remoteStream.addTrack(track);
+        updateStatus(`Stream Drone ID V${mid.slice(1).padStart(3, '0')} playing`);
+        console.log( mid)
+      } else {
+        state.remoteStream.removeTrack(track);
+      }
+    }
+
+    // Create video element for the stream
+    function createVideoElement(mid) {
+      const container = document.getElementById('video-container');
+      container.innerHTML = ''; // Clear any existing video
+
+      const wrapper = document.createElement('div');
+      wrapper.className = 'video-wrapper';
+
+      const video = document.createElement('video');
+      video.id = 'drone-video';
+      video.autoplay = true;
+      video.playsInline = true;
+      video.muted = true;
+      video.srcObject = state.remoteStream;
+
+      const label = document.createElement('div');
+      label.className = 'video-label';
+      label.textContent = config.mountpointName;
+
+      wrapper.appendChild(video);
+      wrapper.appendChild(label);
+      container.appendChild(wrapper);
+    }
+
+    // Cleanup stream resources
+    function cleanupStream() {
+      updateStatus("Stream disconnected");
+      state.remoteStream = null;
+      document.getElementById('video-container').innerHTML = '';
+    }
+
+    // Helper functions
+    function updateStatus(message) {
+      document.getElementById('status').textContent = message;
+      console.log(message);
+    }
+
+    function showError(message) {
+      document.getElementById('error').textContent = message;
+      console.error(message);
+    }
+
+    // Initialize on page load
+    window.addEventListener('load', initializeJanus);
+
+    // Cleanup on page unload
+    window.addEventListener('beforeunload', function() {
+      if (state.janus) {
+        state.janus.destroy();
+      }
+    });
+  </script>
+</body>
+</html>
