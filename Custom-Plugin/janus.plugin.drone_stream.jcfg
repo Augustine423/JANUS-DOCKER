@@ -1,0 +1,3 @@
+[general]
+port_range = 5000-5100
+recordings_path = /opt/janus/recordings
