@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>RTP Stream Frontend</title>
+</head>
+<body>
+  <h1>RTP Stream Configurations</h1>
+  <ul id="streams"></ul>
+  <script>
+    const ws = new WebSocket('ws://rtp-server:8188');
+    ws.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      const li = document.createElement('li');
+      li.textContent = `IP: ${data.ip}, Port: ${data.port}`;
+      document.getElementById('streams').appendChild(li);
+    };
+    ws.onopen = () => console.log('Connected to WebSocket server');
+    ws.onerror = (error) => console.error('WebSocket error:', error);
+  </script>
+</body>
+</html>

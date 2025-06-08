@@ -1,0 +1,116 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: rtp-output-pvc
+  namespace: rtp-system
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 20Gi
+  storageClassName: standard
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rtp-server
+  namespace: rtp-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rtp-server
+  template:
+    metadata:
+      labels:
+        app: rtp-server
+    spec:
+      containers:
+      - name: rtp-server
+        image: <your-registry>/rtp-server:latest # Replace with your registry
+        env:
+        - name: MYSQL_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: rtp-server-config
+              key: MYSQL_HOST
+        - name: MYSQL_DATABASE
+          valueFrom:
+            configMapKeyRef:
+              name: rtp-server-config
+              key: MYSQL_DATABASE
+        - name: BASE_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: rtp-server-config
+              key: BASE_PORT
+        - name: MAX_STREAMS
+          valueFrom:
+            configMapKeyRef:
+              name: rtp-server-config
+              key: MAX_STREAMS
+        - name: WEBSOCKET_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: rtp-server-config
+              key: WEBSOCKET_PORT
+        - name: MYSQL_USER
+          valueFrom:
+            secretKeyRef:
+              name: rtp-server-secret
+              key: MYSQL_USER
+        - name: MYSQL_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: rtp-server-secret
+              key: MYSQL_PASSWORD
+        ports:
+        - containerPort: 8188
+          name: websocket
+        - containerPort: 5000-5999
+          name: rtp
+          protocol: UDP
+        volumeMounts:
+        - name: output
+          mountPath: /app/output
+        resources:
+          requests:
+            cpu: "1000m"
+            memory: "1024Mi"
+          limits:
+            cpu: "2000m"
+            memory: "2048Mi"
+        livenessProbe:
+          tcpSocket:
+            port: 8188
+          initialDelaySeconds: 30
+          periodSeconds: 10
+        readinessProbe:
+          tcpSocket:
+            port: 8188
+          initialDelaySeconds: 5
+          periodSeconds: 5
+      volumes:
+      - name: output
+        persistentVolumeClaim:
+          claimName: rtp-output-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rtp-server
+  namespace: rtp-system
+spec:
+  selector:
+    app: rtp-server
+  ports:
+  - name: websocket
+    port: 8188
+    targetPort: 8188
+    protocol: TCP
+  - name: rtp
+    port: 5000
+    targetPort: 5000-5999
+    protocol: UDP
+  type: LoadBalancer # Use NodePort for local clusters like Minikube

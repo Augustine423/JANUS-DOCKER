@@ -1,0 +1,8 @@
+kubectl create namespace rtp-system
+kubectl apply -f /config.yaml
+kubectl apply -f /mysql-init.yaml
+kubectl apply -f /mysql.yaml
+kubectl apply -f /rtp-server.yaml
+kubectl apply -f /frontend.yaml
+
+kubectl get svc -n rtp-system

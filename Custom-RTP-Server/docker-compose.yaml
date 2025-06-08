@@ -1,0 +1,69 @@
+
+services:
+  rtp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "5000-5999:5000-5999/udp"
+      - "8188:8188"
+    environment:
+      - MYSQL_HOST=mysql
+      - MYSQL_USER=rtp_user
+      - MYSQL_PASSWORD=12345abc
+      - MYSQL_DATABASE=rtp_streams
+      - BASE_PORT=5000
+      - MAX_STREAMS=1000
+      - WEBSOCKET_PORT=8188
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - rtp-network
+    volumes:
+      - ./output:/app/output
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8188"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: on-failure
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_PASSWORD}
+      - MYSQL_DATABASE=rtp_streams
+      - MYSQL_USER=rtp_user
+      - MYSQL_PASSWORD=secure_password
+    volumes:
+      - mysql-data:/var/lib/mysql
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - rtp-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", ]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "8080:8080"
+    networks:
+      - rtp-network
+    depends_on:
+      - rtp-server
+    restart: on-failure
+
+networks:
+  rtp-network:
+    driver: bridge
+
+volumes:
+  mysql-data:
