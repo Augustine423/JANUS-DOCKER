@@ -1,0 +1,10 @@
+general: {
+        enabled = true
+        json = "indented"
+        path = "/tmp/janus.sock"
+}
+
+admin: {
+        admin_enabled = true
+        admin_path = "/tmp/janus-admin.sock"
+}
