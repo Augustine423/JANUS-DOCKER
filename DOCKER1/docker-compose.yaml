@@ -1,17 +1,17 @@
-version: "3.8"
+
 services:
   janus-gateway:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: janus-gateway:custom
-    command: ["/opt/janus/bin/janus", "-F", "/opt/janus/etc/janus"]
+    image: "canyan/janus-gateway:latest"
+    command: ["/usr/local/bin/janus", "-F", "/usr/local/etc/janus"]
     ports:
-      - "5002:5002/udp"
-      - "5004:5004/udp"
-      - "5100-5150:5100-5150/udp"
       - "8188:8188"
+      - "8088:8088"
+      - "8089:8089"
+      - "8889:8889"
+      - "8000:8000"
       - "7088:7088"
+      - "7089:7089"
+      - "10000-10200:10000-10200/udp"
     volumes:
       - ./janus-config/janus.jcfg:/opt/janus/etc/janus/janus.jcfg
       - ./janus-config/janus.plugin.videoroom.jcfg:/opt/janus/etc/janus/janus.plugin.videoroom.jcfg
@@ -19,14 +19,12 @@ services:
       - ./janus-config/janus.transport.websockets.jcfg:/opt/janus/etc/janus/janus.transport.websockets.jcfg
       - ./janus-config/janus.plugin.streaming.jcfg:/opt/janus/etc/janus/janus.plugin.streaming.jcfg
       - ./recordings:/opt/janus/recordings
-    environment:
-      - PUBLIC_IP=auto
-    restart: unless-stopped
+
 
   web_server:
-    image: nginx:alpine
+    user: "root"
+    image: httpd:alpine
     ports:
-      - "80:80"
+      - 80:80
     volumes:
-      - ./html:/usr/share/nginx/html
-    restart: unless-stopped
+      - ./html:/usr/local/apache2/htdocs

@@ -1,0 +1,22 @@
+version: "3"
+services:
+  janus:
+    build: ./janus
+    ports:
+      - "8088:8088"
+      - "8188:8188"
+      - "5000-5500:5000-5500/udp"
+    volumes:
+      - ./janus/plugins:/usr/local/janus/lib/janus/plugins
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: janus
+      POSTGRES_USER: janus
+      POSTGRES_PASSWORD: secret
+  uploader:
+    build: ./upload
+    volumes:
+      - /tmp:/tmp
+    depends_on:
+      - db

@@ -1,5 +1,5 @@
 # Stage 1: Build Janus Gateway
-FROM debian:bullseye-slim AS builder
+FROM debian:bullseye-slim
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y \
@@ -94,20 +94,20 @@ RUN mkdir -p /opt/janus/etc/janus /opt/janus/recordings /opt/janus/lib/janus/log
 COPY --from=builder /opt/janus/share/janus/html/* /var/www/html/
 
 # Set environment variables for build metadata
-ARG BUILD_DATE="undefined"
-ARG GIT_BRANCH="undefined"
-ARG GIT_COMMIT="undefined"
-ARG VERSION="undefined"
+# ARG BUILD_DATE="undefined"
+# ARG GIT_BRANCH="undefined"
+# ARG GIT_COMMIT="undefined"
+# ARG VERSION="undefined"
 
-LABEL build_date=${BUILD_DATE}
-LABEL git_branch=${GIT_BRANCH}
-LABEL git_commit=${GIT_COMMIT}
-LABEL version=${VERSION}
+# LABEL build_date=${BUILD_DATE}
+# LABEL git_branch=${GIT_BRANCH}
+# LABEL git_commit=${GIT_COMMIT}
+# LABEL version=${VERSION}
 
-ENV BUILD_DATE=${BUILD_DATE}
-ENV GIT_BRANCH=${GIT_BRANCH}
-ENV GIT_COMMIT=${GIT_COMMIT}
-ENV VERSION=${VERSION}
+# ENV BUILD_DATE=${BUILD_DATE}
+# ENV GIT_BRANCH=${GIT_BRANCH}
+# ENV GIT_COMMIT=${GIT_COMMIT}
+# ENV VERSION=${VERSION}
 
 # Expose necessary ports (aligned with your script)
 EXPOSE 5002/udp 5004/udp 5100-5150/udp 8188 7088

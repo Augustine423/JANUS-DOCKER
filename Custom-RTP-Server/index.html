@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RTP Stream Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="http://<host>:<janus_port>/janus.js"></script>
+    <style>
+        .video-container {
+            position: relative;
+            width: 100%;
+            padding-bottom: 56.25%; /* 16:9 aspect ratio */
+            overflow: hidden;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .video-container video {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        .stream-info {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.875rem;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen p-4">
+    <div class="container mx-auto">
+        <h1 class="text-3xl font-bold text-center mb-6">RTP Stream Dashboard</h1>
+        <div id="status" class="text-center text-lg mb-4 text-gray-600">Connecting to WebSocket...</div>
+        <div id="video-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4"></div>
+    </div>
+
+    <script>
+        const JANUS_URL = 'http://' + window.location.hostname + ':' + (new URLSearchParams(window.location.search).get('janus_port') || '8088');
+        const WS_URL = 'ws://' + window.location.hostname + ':8188/rtp-config';
+        let janus = null;
+        let streams = new Map(); // Map of ip:port to stream session
+
+        // Initialize WebSocket
+        const ws = new WebSocket(WS_URL);
+        ws.onopen = () => {
+            document.getElementById('status').textContent = 'Connected to WebSocket';
+            document.getElementById('status').classList.add('text-green-600');
+        };
+        ws.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                handleStream(data.ip, data.port);
+            } catch (e) {
+                console.error('Invalid WebSocket message:', e);
+            }
+        };
+        ws.onclose = () => {
+            document.getElementById('status').textContent = 'WebSocket disconnected';
+            document.getElementById('status').classList.remove('text-green-600');
+            document.getElementById('status').classList.add('text-red-600');
+        };
+        ws.onerror = (error) => {
+            console.error('WebSocket error:', error);
+        };
+
+        // Initialize Janus
+        Janus.init({
+            debug: true,
+            callback: () => {
+                janus = new Janus({
+                    server: JANUS_URL,
+                    success: () => {
+                        console.log('Janus connected');
+                    },
+                    error: (error) => {
+                        console.error('Janus error:', error);
+                        document.getElementById('status').textContent = 'Janus connection failed';
+                        document.getElementById('status').classList.add('text-red-600');
+                    },
+                    destroyed: () => {
+                        console.log('Janus destroyed');
+                    }
+                });
+            }
+        });
+
+        // Handle a stream (ip:port)
+        function handleStream(ip, port) {
+            const streamKey = `${ip}:${port}`;
+            if (streams.has(streamKey)) return; // Stream already active
+
+            // Create video element and container
+            const container = document.createElement('div');
+            container.className = 'video-container';
+            const video = document.createElement('video');
+            video.autoplay = true;
+            video.muted = true; // No audio in streams
+            container.appendChild(video);
+            const info = document.createElement('div');
+            info.className = 'stream-info';
+            info.textContent = streamKey;
+            container.appendChild(info);
+            document.getElementById('video-grid').appendChild(container);
+
+            // Connect to Janus Streaming plugin
+            janus.attach({
+                plugin: 'janus.plugin.streaming',
+                success: (pluginHandle) => {
+                    streams.set(streamKey, { handle: pluginHandle, video: video, container: container });
+                    pluginHandle.send({
+                        message: { request: 'watch', id: streamKey } // Assumes mountpoint ID is ip:port
+                    });
+                },
+                error: (error) => {
+                    console.error(`Janus plugin error for ${streamKey}:`, error);
+                    removeStream(streamKey);
+                },
+                onmessage: (msg, jsep) => {
+                    if (jsep) {
+                        const stream = streams.get(streamKey);
+                        stream.handle.createAnswer({
+                            jsep: jsep,
+                            media: { audio: false, video: true },
+                            success: (jsep) => {
+                                stream.handle.send({
+                                    message: { request: 'start' },
+                                    jsep: jsep
+                                });
+                            },
+                            error: (error) => {
+                                console.error(`WebRTC answer error for ${streamKey}:`, error);
+                                removeStream(streamKey);
+                            }
+                        });
+                    }
+                },
+                onremotestream: (stream) => {
+                    const streamData = streams.get(streamKey);
+                    Janus.attachMediaStream(streamData.video, stream);
+                },
+                oncleanup: () => {
+                    removeStream(streamKey);
+                }
+            });
+        }
+
+        // Remove a stream
+        function removeStream(streamKey) {
+            const stream = streams.get(streamKey);
+            if (stream) {
+                stream.handle.detach();
+                stream.container.remove();
+                streams.delete(streamKey);
+            }
+        }
+    </script>
+</body>
+</html>
