@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Drone Frame Sender Dashboard</title>
+    <style>
+        body {
+            background: #1a202c;
+            color: #fff;
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+        }
+        #dashboard {
+            max-width: 800px;
+            margin: 20px auto;
+            text-align: center;
+        }
+        #status, #error, #frame-count, #stream-mid {
+            font-size: 18px;
+            margin: 10px 0;
+        }
+        #error {
+            color: #ff4444;
+        }
+        #frame-count span, #stream-mid span {
+            font-weight: bold;
+            color: #48bb78;
+        }
+    </style>
+</head>
+<body>
+    <div id="dashboard">
+        <div id="status">Connecting to drone stream...</div>
+        <div id="error"></div>
+        <div id="frame-count">Frames Sent: <span>0</span></div>
+        <div id="stream-mid">Stream MID: <span>None</span></div>
+    </div>
+
+    <script src="./adapter.js"></script>
+    <script src="./janus.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+    <script>
+        // Configuration
+        const config = {
+            janusServer: "ws://3.37.36.190:8188",
+            socketServer: "http://192.168.0.196:5000",
+            secret: "adminpwd",
+            mountpointId: 1234,
+            mountpointName: "Drone Video Stream",
+            frameRate: 1 // 1 FPS
+        };
+
+        // State management
+        const state = {
+            janus: null,
+            streamingHandle: null,
+            remoteStream: null,
+            socket: null,
+            currentMid: null,
+            frameCount: 0,
+            frameInterval: null,
+            hiddenVideo: null
+        };
+
+        // Hidden elements for frame capture
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+        state.hiddenVideo = document.createElement("video");
+        state.hiddenVideo.muted = true;
+        state.hiddenVideo.playsInline = true;
+        state.hiddenVideo.style.display = "none";
+        document.body.appendChild(state.hiddenVideo);
+
+        // Initialize Socket.IO
+        function initializeSocketIO() {
+            state.socket = io(config.socketServer, {
+                transports: ['websocket'],
+                reconnection: true,
+                reconnectionAttempts: 5
+            });
+
+            state.socket.on('connect', () => {
+                updateStatus('Socket.IO connected');
+            });
+
+            state.socket.on('connect_error', (error) => {
+                showError(`Socket.IO connection error: ${error.message || error}`);
+            });
+
+            state.socket.on('detection_result', (data) => {
+                updateStatus(`Detection: ${JSON.stringify(data)}`);
+            });
+        }
+
+        // Capture and send frame
+        function captureAndSendFrame() {
+            if (!state.remoteStream || !state.hiddenVideo.srcObject) {
+                showError("No active stream for frame capture");
+                return;
+            }
+
+            const videoTrack = state.remoteStream.getVideoTracks()[0];
+            if (!videoTrack || videoTrack.readyState !== "live") {
+                showError(`Video track not live: ${videoTrack ? videoTrack.readyState : 'no track'}`);
+                return;
+            }
+
+            // Check video readiness without calling play()
+            if (state.hiddenVideo.readyState < 2 || state.hiddenVideo.videoWidth === 0) {
+                console.log(`Video not ready: readyState=${state.hiddenVideo.readyState}, videoWidth=${state.hiddenVideo.videoWidth}`);
+                return; // Skip capture, retry on next interval
+            }
+
+            // Set canvas size to match video
+            canvas.width = state.hiddenVideo.videoWidth;
+            canvas.height = state.hiddenVideo.videoHeight;
+
+            // Draw video frame to canvas
+            try {
+                ctx.drawImage(state.hiddenVideo, 0, 0, canvas.width, canvas.height);
+            } catch (err) {
+                showError(`Frame draw error: ${err.message || err}`);
+                return;
+            }
+
+            // Get frame as JPEG
+            let frameData;
+            try {
+                frameData = canvas.toDataURL('image/jpeg', 0.8);
+            } catch (err) {
+                showError(`Frame encoding error: ${err.message || err}`);
+                return;
+            }
+
+            // Send frame with mid
+            if (state.socket && state.socket.connected && state.currentMid) {
+                state.socket.emit('source', {
+                    mid: state.currentMid,
+                    image: frameData
+                });
+                state.frameCount++;
+                document.querySelector('#frame-count span').textContent = state.frameCount;
+                console.log(`Frame sent with mid: ${state.currentMid}, count: ${state.frameCount}`);
+            } else {
+                showError("Socket not connected or no MID available");
+            }
+        }
+
+        // Initialize Janus
+        function initializeJanus() {
+            Janus.init({
+                debug: "all", // Full logging for debugging
+                callback: function() {
+                    if (!Janus.isWebrtcSupported()) {
+                        showError("WebRTC not supported by this browser");
+                        return;
+                    }
+
+                    state.janus = new Janus({
+                        server: config.janusServer,
+                        success: function() {
+                            updateStatus("Connected to Janus server");
+                            initializeSocketIO();
+                            attachToStreamingPlugin();
+                        },
+                        error: function(error) {
+                            showError(`Connection failed: ${error}`);
+                        }
+                    });
+                }
+            });
+        }
+
+        // Attach to the Streaming plugin
+        function attachToStreamingPlugin() {
+            state.janus.attach({
+                plugin: "janus.plugin.streaming",
+                opaqueId: `streaming-${config.mountpointId}-${Janus.randomString(12)}`,
+                success: function(pluginHandle) {
+                    state.streamingHandle = pluginHandle;
+                    updateStatus(`Connected to ${config.mountpointName}`);
+                    startWatching();
+                },
+                error: function(error) {
+                    showError(`Plugin error: ${error}`);
+                },
+                onmessage: handleJanusMessage,
+                onremotetrack: handleRemoteTrack,
+                oncleanup: cleanupStream
+            });
+        }
+
+        // Start watching the mountpoint
+        function startWatching() {
+            state.streamingHandle.send({
+                message: {
+                    request: "watch",
+                    id: config.mountpointId,
+                    secret: config.secret,
+                    offer_audio: false,
+                    offer_video: true
+                },
+                success: function() {
+                    updateStatus("Requesting stream...");
+                },
+                error: function(error) {
+                    showError(`Watch error: ${error}`);
+                }
+            });
+        }
+
+        // Handle Janus messages
+        function handleJanusMessage(msg, jsep) {
+            console.log("Janus message:", msg);
+            if (msg.error) {
+                showError(msg.error);
+                return;
+            }
+
+            if (msg.result && msg.result.status) {
+                updateStatus(`Stream status: ${msg.result.status}`);
+            }
+
+            if (jsep) {
+                handleWebRTCAnswer(jsep);
+            }
+        }
+
+        // Handle WebRTC answer creation
+        function handleWebRTCAnswer(jsep) {
+            state.streamingHandle.createAnswer({
+                jsep: jsep,
+                tracks: [{ type: "video", recv: true }],
+                success: function(jsepAnswer) {
+                    state.streamingHandle.send({
+                        message: { request: "start" },
+                        jsep: jsepAnswer
+                    });
+                },
+                error: function(error) {
+                    showError(`WebRTC error: ${error}`);
+                }
+            });
+        }
+
+        // Handle incoming remote track
+        function handleRemoteTrack(track, mid, on) {
+            console.log(`Remote track: kind=${track.kind}, mid=${mid}, on=${on}, readyState=${track.readyState}`);
+            if (track.kind === "video" && on) {
+                state.currentMid = mid;
+                document.querySelector('#stream-mid span').textContent = mid;
+                if (!state.remoteStream) {
+                    state.remoteStream = new MediaStream();
+                }
+                state.remoteStream.addTrack(track);
+                state.hiddenVideo.srcObject = state.remoteStream;
+                // Do not call play()
+                updateStatus(`Stream ${mid} active`);
+                // Delay frame capture to ensure video is ready
+                setTimeout(() => {
+                    if (!state.frameInterval && state.remoteStream) {
+                        state.frameInterval = setInterval(captureAndSendFrame, 1000 / config.frameRate);
+                    }
+                }, 1000);
+            } else if (!on && track.kind === "video") {
+                state.remoteStream.removeTrack(track);
+                state.currentMid = null;
+                state.hiddenVideo.srcObject = null;
+                document.querySelector('#stream-mid span').textContent = "None";
+                if (state.frameInterval) {
+                    clearInterval(state.frameInterval);
+                    state.frameInterval = null;
+                }
+                updateStatus("Video track removed");
+            }
+        }
+
+        // Cleanup stream resources
+        function cleanupStream() {
+            updateStatus("Stream disconnected");
+            state.remoteStream = null;
+            state.currentMid = null;
+            state.hiddenVideo.srcObject = null;
+            document.querySelector('#stream-mid span').textContent = "None";
+            if (state.frameInterval) {
+                clearInterval(state.frameInterval);
+                state.frameInterval = null;
+            }
+        }
+
+        // Helper functions
+        function updateStatus(message) {
+            document.getElementById('status').textContent = message;
+            console.log(message);
+        }
+
+        function showError(message) {
+            document.getElementById('error').textContent = message;
+            console.error(message);
+        }
+
+        // Initialize on page load
+        window.addEventListener('load', initializeJanus);
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', function() {
+            if (state.janus) {
+                state.janus.destroy();
+            }
+            if (state.socket) {
+                state.socket.disconnect();
+            }
+            if (state.frameInterval) {
+                clearInterval(state.frameInterval);
+            }
+            if (state.hiddenVideo) {
+                state.hiddenVideo.srcObject = null;
+            }
+        });
+    </script>
+</body>
+</html>
