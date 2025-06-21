@@ -50,7 +50,8 @@ sudo apt install -y \
     libspeexdsp-dev \
     libavutil-dev \
     libavcodec-dev \
-    libavformat-dev
+    libavformat-dev \
+    ffmpeg
 
 # Step 3: Install usrsctp
 echo "Installing usrsctp..."
