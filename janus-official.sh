@@ -85,7 +85,9 @@ cd janus-gateway
 sh autogen.sh
 ./configure --prefix=/opt/janus \
     --enable-websockets \
-    --enable-libsrtp2
+    --enable-libsrtp2 \
+    --enable-post-processing \
+    --enable-recordings
 make
 sudo make install
 sudo make configs
