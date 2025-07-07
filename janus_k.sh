@@ -1239,7 +1239,7 @@ multistream-test: {
         },
         {
             type = "video"
-            mid = "v0100"
+            mid = "v100"
             label = "5100"
             port = 5100
             pt = 100
