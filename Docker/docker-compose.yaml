@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  janus:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+      - "8188:8188"
+      - "5001-5100:5001-5100/udp"
+    environment:
+      - PUBLIC_IP=${PUBLIC_IP}  # Optional override; entrypoint.sh handles default
+    volumes:
+      - recordings:/opt/janus/recordings
+    restart: unless-stopped
+
+volumes:
+  recordings:
